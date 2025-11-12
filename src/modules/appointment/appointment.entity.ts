@@ -20,11 +20,16 @@ export class Appointment {
   @Column({ type: 'date' })
   appointment_date: Date;
 
-  @Column({ type: 'time' })
+  // For wave scheduling - patient selects specific slot
+  @Column({ type: 'time', nullable: true })
   start_time: string;
 
-  @Column({ type: 'time' })
+  @Column({ type: 'time', nullable: true })
   end_time: string;
+
+  // NEW FIELD: Auto-assigned time for stream scheduling
+  @Column({ type: 'time', nullable: true })
+  assigned_time: string;
 
   @Column({ nullable: true })
   token_number: number;
