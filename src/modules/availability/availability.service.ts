@@ -26,20 +26,39 @@ export class AvailabilityService {
       };
     }
 
+    // Check if availability already exists for this doctor with same time slot
+    const existingAvailability = await this.availabilityRepo.findOne({
+      where: {
+        doctor: { doctor_id: data.doctor_id },
+        start_time: data.start_time,
+        end_time: data.end_time,
+        session: data.session,
+        schedule_type: data.schedule_type,
+        is_available: true,
+      },
+    });
+
+    if (existingAvailability) {
+      return {
+        success: false,
+        message: 'Availability already exists for this doctor at this time slot',
+      };
+    }
+
     const availability = this.availabilityRepo.create({
       doctor: doctor,
-      available_date: data.available_date,
       session: data.session,
       start_time: data.start_time,
       end_time: data.end_time,
-      booking_start_time: data.booking_start_time,
-      booking_end_time: data.booking_end_time,
       schedule_type: data.schedule_type,
-      slot_duration: data.slot_duration || null,
-      capacity_per_slot: data.capacity_per_slot || null,
-      total_capacity: data.total_capacity || null,
+      slot_duration: data.slot_duration,
+      capacity_per_slot: data.capacity_per_slot,
+      total_capacity: data.total_capacity,
       booked_count: 0,
       is_available: true,
+      recurrence_days: data.recurrence_days,
+      recurrence_start_date: data.recurrence_start_date,
+      recurrence_end_date: data.recurrence_end_date,
     });
 
     return await this.availabilityRepo.save(availability);
@@ -52,17 +71,16 @@ export class AvailabilityService {
     });
 
     if (!doctor) {
-      throw new Error('Doctor not found');
+      return {
+        success: false,
+        message: 'Doctor not found',
+      };
     }
 
-    // Parse date string to Date object
-    const queryDate = new Date(date);
-
-    // Fetch availability for this doctor on this date
+    // Find availability that matches this day
     const availability = await this.availabilityRepo.findOne({
       where: {
         doctor: { doctor_id: doctorId },
-        available_date: queryDate,
         is_available: true,
       },
     });
@@ -73,7 +91,30 @@ export class AvailabilityService {
         date,
         scheduleType: null,
         slots: [],
-        message: 'No availability found for this date',
+        message: 'No availability found',
+      };
+    }
+
+    // Calculate day of week
+    const queryDate = new Date(date);
+    const dayOfWeek = queryDate.getDay();
+    const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const currentDay = dayNames[dayOfWeek];
+
+    // Check if this date's day is in recurrence_days and within date range
+    const recurringDays = availability.recurrence_days.split(',');
+    const isDateValid =
+      recurringDays.includes(currentDay) &&
+      queryDate >= new Date(availability.recurrence_start_date) &&
+      queryDate <= new Date(availability.recurrence_end_date);
+
+    if (!isDateValid) {
+      return {
+        doctorId,
+        date,
+        scheduleType: null,
+        slots: [],
+        message: 'No availability for this date',
       };
     }
 
@@ -102,7 +143,6 @@ export class AvailabilityService {
     while (currentTime < endTime) {
       const slotEndTime = currentTime + slotDuration;
 
-      // Only create slot if it fits within doctor's availability
       if (slotEndTime <= endTime) {
         const slotStartTimeStr = this.minutesToTime(currentTime);
         const slotEndTimeStr = this.minutesToTime(slotEndTime);
@@ -112,7 +152,7 @@ export class AvailabilityService {
           startTime: slotStartTimeStr,
           endTime: slotEndTimeStr,
           capacity: capacityPerSlot,
-          bookedCount: 0, // In real scenario, query from appointments
+          bookedCount: 0,
           availableSeats: capacityPerSlot,
           isFull: false,
         });
@@ -163,13 +203,13 @@ export class AvailabilityService {
     };
   }
 
-  // Helper: Convert HH:MM format to minutes
+  //Convert HH:MM format to minutes
   private timeToMinutes(time: string): number {
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
   }
 
-  // Helper: Convert minutes to HH:MM format
+  //Convert minutes to HH:MM format
   private minutesToTime(minutes: number): string {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;

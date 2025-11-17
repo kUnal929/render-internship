@@ -9,9 +9,6 @@ export class Availability {
   @ManyToOne(() => Doctor)
   doctor: Doctor;
 
-  @Column({ type: 'date' })
-  available_date: Date;
-
   @Column({ nullable: true })
   session: string; // morning, afternoon, evening
 
@@ -21,14 +18,6 @@ export class Availability {
 
   @Column({ type: 'time' })
   end_time: string;
-
-  // NEW FIELD: Booking window - when patients can start booking
-  @Column({ type: 'time', nullable: true })
-  booking_start_time: string;
-
-  // NEW FIELD: Booking window - when patients can stop booking
-  @Column({ type: 'time', nullable: true })
-  booking_end_time: string;
 
   // NEW FIELD: Slot duration in minutes for wave scheduling (30 or 60)
   @Column({ type: 'int', nullable: true })
@@ -52,4 +41,14 @@ export class Availability {
 
   @Column({ default: true })
   is_available: boolean;
+
+  // Recurrence fields
+  @Column({ type: 'varchar' })
+  recurrence_days: string; // 'MON,WED,FRI'
+
+  @Column({ type: 'date' })
+  recurrence_start_date: Date;
+
+  @Column({ type: 'date' })
+  recurrence_end_date: Date;
 }
