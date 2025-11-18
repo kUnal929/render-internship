@@ -23,6 +23,7 @@ import { SlotModule } from './modules/slot/slot.module';
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
+      url: process.env.DATABASE_URL,
       host: process.env.DB_HOST,
       port: Number(process.env.DB_PORT),
       username: process.env.DB_USERNAME,
@@ -30,6 +31,7 @@ import { SlotModule } from './modules/slot/slot.module';
       database: process.env.DB_NAME,
       entities: [User, Doctor, Patient, Appointment, Availability, Slot],
       synchronize: true,
+      ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
     }),
     UserModule,
     AuthModule,
