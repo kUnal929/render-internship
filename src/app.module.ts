@@ -8,45 +8,35 @@ import { Doctor } from './modules/doctor/doctor.entity';
 import { Patient } from './modules/patient/patient.entity';
 import { Appointment } from './modules/appointment/appointment.entity';
 import { Availability } from './modules/availability/availability.entity';
+import { Slot } from './modules/slot/slot.entity';
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DoctorModule } from './modules/doctor/doctor.module';
 import { AppointmentModule } from './modules/appointment/appointment.module';
 import { AvailabilityModule } from './modules/availability/availability.module';
+import { SlotModule } from './modules/slot/slot.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-
-    // ✅ Smart dynamic database config for local + Render
     TypeOrmModule.forRoot({
       type: 'postgres',
-      ...(process.env.DATABASE_URL
-        ? {
-            // Render Deployment DB
-            url: process.env.DATABASE_URL,
-            ssl: { rejectUnauthorized: false },
-          }
-        : {
-            // Local DB (pgAdmin)
-            host: process.env.DB_HOST,
-            port: Number(process.env.DB_PORT),
-            username: process.env.DB_USERNAME,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME,
-          }),
-      entities: [User, Doctor, Patient, Appointment, Availability],
-      autoLoadEntities: true,
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT),
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      entities: [User, Doctor, Patient, Appointment, Availability, Slot],
       synchronize: true,
     }),
-
     UserModule,
     AuthModule,
     DoctorModule,
     AppointmentModule,
     AvailabilityModule,
+    SlotModule,
   ],
   controllers: [AppController],
   providers: [AppService],

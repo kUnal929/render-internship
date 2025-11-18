@@ -4,9 +4,11 @@ import { Availability } from './availability.entity';
 import { AvailabilityService } from './availability.service';
 import { AvailabilityController } from './availability.controller';
 import { Doctor } from '../doctor/doctor.entity';
+import { Slot } from '../slot/slot.entity';
+import { SlotModule } from '../slot/slot.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Availability, Doctor])],
+  imports: [TypeOrmModule.forFeature([Availability, Doctor, Slot]), SlotModule],
   controllers: [AvailabilityController],
   providers: [AvailabilityService],
   exports: [AvailabilityService],

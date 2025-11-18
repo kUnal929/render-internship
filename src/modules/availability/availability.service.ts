@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Availability } from './availability.entity';
 import { Doctor } from '../doctor/doctor.entity';
+import { SlotService } from '../slot/slot.service';
+import { Slot } from '../slot/slot.entity';
 
 @Injectable()
 export class AvailabilityService {
@@ -11,6 +13,9 @@ export class AvailabilityService {
     private availabilityRepo: Repository<Availability>,
     @InjectRepository(Doctor)
     private doctorRepo: Repository<Doctor>,
+    @InjectRepository(Slot)
+    private slotRepo: Repository<Slot>,
+    private slotService: SlotService,
   ) {}
   // insert new availability record
   async createAvailability(data: any) {
@@ -61,7 +66,14 @@ export class AvailabilityService {
       recurrence_end_date: data.recurrence_end_date,
     });
 
-    return await this.availabilityRepo.save(availability);
+    const savedAvailability = await this.availabilityRepo.save(availability);
+
+    // If wave, generate slots
+    if (data.schedule_type === 'wave') {
+      await this.slotService.generateWaveSlots(savedAvailability);
+    }
+
+    return savedAvailability;
   }
 
   // Get available slots for a doctor on a specific date
@@ -116,11 +128,36 @@ export class AvailabilityService {
         slots: [],
         message: 'No availability for this date',
       };
-    }
+    } 
 
     // Check schedule type and generate slots accordingly
     if (availability.schedule_type === 'wave') {
-      return this.generateWaveSlots(availability, doctorId, date);
+      // Fetch real slots from Slot table for this date
+      const slots = await this.slotRepo.find({
+        where: {
+          availability: { availability_id: availability.availability_id },
+          slot_date: new Date(date),
+        },
+        order: { start_time: 'ASC' },
+      });
+
+      // Map slots to response format
+      return {
+        doctorId,
+        date,
+        scheduleType: 'wave',
+        slotDuration: availability.slot_duration,
+        slots: slots.map((slot, index) => ({
+          slotId: slot.slot_id,
+          startTime: slot.start_time,
+          endTime: slot.end_time,
+          capacity: availability.capacity_per_slot,
+          bookedCount: slot.booked_count,
+          availableSeats: availability.capacity_per_slot - slot.booked_count,
+          isFull: slot.booked_count >= availability.capacity_per_slot,
+        })),
+        message: `Found ${slots.length} available slots`,
+      };
     } else if (availability.schedule_type === 'stream') {
       return this.generateStreamSlot(availability, doctorId, date);
     }
@@ -128,7 +165,7 @@ export class AvailabilityService {
     throw new Error('Invalid schedule type');
   }
 
-  // Generate slots for WAVE scheduling
+  // Generate slots for WAVE scheduling only to show available slots
   private generateWaveSlots(availability: any, doctorId: number, date: string) {
     const slots: any[] = [];
     const slotDuration = availability.slot_duration; // in minutes (30 or 60)
