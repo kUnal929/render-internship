@@ -46,9 +46,9 @@ export class Availability {
   @Column({ type: 'varchar', nullable: true, default: 'MON,TUE,WED,THU,FRI' })
   recurrence_days: string; // 'MON,WED,FRI'
 
-  @Column({ type: 'date' })
+  @Column({ type: 'date', nullable: true })
   recurrence_start_date: Date;
 
-  @Column({ type: 'date' })
+  @Column({ type: 'date', nullable: true })
   recurrence_end_date: Date;
 }
