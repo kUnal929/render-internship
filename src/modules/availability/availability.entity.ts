@@ -43,7 +43,7 @@ export class Availability {
   is_available: boolean;
 
   // Recurrence fields
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', nullable: true, default: 'MON,TUE,WED,THU,FRI' })
   recurrence_days: string; // 'MON,WED,FRI'
 
   @Column({ type: 'date' })
