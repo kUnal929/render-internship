@@ -5,6 +5,7 @@ import { Availability } from './availability.entity';
 import { Doctor } from '../doctor/doctor.entity';
 import { SlotService } from '../slot/slot.service';
 import { Slot } from '../slot/slot.entity';
+import { ElasticSession } from '../elastic-session/elastic-session.entity';
 
 @Injectable()
 export class AvailabilityService {
@@ -15,6 +16,8 @@ export class AvailabilityService {
     private doctorRepo: Repository<Doctor>,
     @InjectRepository(Slot)
     private slotRepo: Repository<Slot>,
+    @InjectRepository(ElasticSession)
+    private elasticSessionRepo: Repository<ElasticSession>,
     private slotService: SlotService,
   ) {}
   // insert new availability record
@@ -132,6 +135,14 @@ export class AvailabilityService {
 
     // Check schedule type and generate slots accordingly
     if (availability.schedule_type === 'wave') {
+      // Check if there's an ElasticSession adjustment for this date
+      const elasticSession = await this.elasticSessionRepo.findOne({
+        where: {
+          availability: { availability_id: availability.availability_id },
+          session_date: new Date(date),
+        },
+      });
+
       // Fetch real slots from Slot table for this date
       const slots = await this.slotRepo.find({
         where: {
@@ -147,6 +158,8 @@ export class AvailabilityService {
         date,
         scheduleType: 'wave',
         slotDuration: availability.slot_duration,
+        isElasticExpanded: !!elasticSession,
+        elasticSession: elasticSession || null,
         slots: slots.map((slot, index) => ({
           slotId: slot.slot_id,
           startTime: slot.start_time,
@@ -159,6 +172,30 @@ export class AvailabilityService {
         message: `Found ${slots.length} available slots`,
       };
     } else if (availability.schedule_type === 'stream') {
+      // Check if there's an ElasticSession adjustment for this date
+      const elasticSession = await this.elasticSessionRepo.findOne({
+        where: {
+          availability: { availability_id: availability.availability_id },
+          session_date: new Date(date),
+        },
+      });
+
+      // If elastic session exists, use adjusted times and capacity
+      if (elasticSession) {
+        return this.generateStreamSlot(
+          {
+            ...availability,
+            start_time: elasticSession.new_start_time,
+            end_time: elasticSession.new_end_time,
+            // Note: new_total_capacity is stored in ElasticSession but we need to parse it from body
+            // For now, we'll use the query to get the elastic session with expanded capacity
+          },
+          doctorId,
+          date,
+          elasticSession,
+        );
+      }
+
       return this.generateStreamSlot(availability, doctorId, date);
     }
 
@@ -215,8 +252,10 @@ export class AvailabilityService {
     availability: any,
     doctorId: number,
     date: string,
+    elasticSession?: any,
   ) {
-    const totalCapacity = availability.total_capacity;
+    // Use elastic session capacity if available, otherwise use availability capacity
+    const totalCapacity = elasticSession?.new_total_capacity || availability.total_capacity;
     const bookedCount = availability.booked_count;
     const availableSeats = totalCapacity - bookedCount;
 
@@ -229,6 +268,8 @@ export class AvailabilityService {
       availableSeats,
       isFull: availableSeats <= 0,
       note: 'System will auto-assign exact time within this window',
+      isElasticExpanded: !!elasticSession,
+      elasticSession: elasticSession || null,
     };
 
     return {

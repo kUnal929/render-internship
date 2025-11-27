@@ -24,4 +24,10 @@ export class Appointment {
 
   @Column({ type: 'varchar', default: 'confirmed' })
   status: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  cancelled_by: string; // 'doctor' or 'patient'
+
+  @Column({ type: 'timestamp', nullable: true })
+  cancellation_date: Date;
 }
